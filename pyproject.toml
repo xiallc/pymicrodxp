@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pymicrodxp"
+dynamic = ["version"]
+description = "High-performance driver for XIA microDXP hardware."
+readme = "README.md"
+authors = [{ name = "XIA LLC", email = "support@xia.com" }]
+
+license = "Apache-2.0"
+
+license-files = ["LICENSE"]
+
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+
+dependencies = [
+    "pyserial>=3.5"
+]
+
+[project.optional-dependencies]
+shell = [
+    "matplotlib>=3.5.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "build",
+    "twine",
+]
+usb = [
+    "pyusb>=1.2.1"
+]
+
+[project.scripts]
+microdxp = "pymicrodxp.cli:main"
+
+[tool.setuptools_scm]
+write_to = "src/pymicrodxp/_version.py"
+fallback_version = "0.0.0"
+local_scheme = "no-local-version"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pymicrodxp = ["py.typed"]
