@@ -1,13 +1,13 @@
 """ SPDX-License-Identifier: Apache-2.0 """
 
 from .cli_utils import ShellLogger, requires_connection
-from .status import StatusShellMixin
-from .diagnostic import DiagnosticShellMixin
-from .visualization import VisualizationShellMixin
-from .qc import QualityControlShellMixin
-from .run_control import RunControlShellMixin
-from .spectrometer_control import SpectrometerControlShellMixin
-from .peripheral import PeripheralShellMixin
+from .status import StatusShell
+from .diagnostic import DiagnosticShell
+from .visualization import VisualizationShell
+from .qc import QualityControlShell
+from .run_control import RunControlShell
+from .spectrometer_control import SpectrometerControlShell
+from .peripheral import PeripheralShell
 
 """
 Copyright 2026 XIA LLC, All rights reserved.
@@ -25,6 +25,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-__all__ = ["ShellLogger", "requires_connection", "StatusShellMixin", "DiagnosticShellMixin",
-           "VisualizationShellMixin", "QualityControlShellMixin", "RunControlShellMixin",
-           "SpectrometerControlShellMixin", "PeripheralShellMixin"]
+__all__ = ["ShellLogger", "requires_connection", "StatusShell", "DiagnosticShell",
+           "VisualizationShell", "QualityControlShell", "RunControlShell",
+           "SpectrometerControlShell", "PeripheralShell"]

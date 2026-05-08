@@ -22,8 +22,15 @@ limitations under the License.
 """
 
 
-class QualityControlShellMixin:
+class QualityControlShell:
     """Commands for hardware validation and performance snapshots."""
+
+    def __init__(self, shell):
+        self.shell = shell
+
+    @property
+    def dxp(self):
+        return self.shell.dxp
 
     @requires_connection
     def do_test(self, arg):
@@ -75,4 +82,4 @@ class QualityControlShellMixin:
 
         print(f"QC Snapshot saved to: {filename}")
         if args.plot:
-            self.run_view_data(filename)
+            self.shell.run_view_data(filename)

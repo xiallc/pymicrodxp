@@ -23,8 +23,15 @@ limitations under the License.
 """
 
 
-class RunControlShellMixin:
+class RunControlShell:
     """Commands for controlling data acquisition and reading MCA data."""
+
+    def __init__(self, shell):
+        self.shell = shell
+
+    @property
+    def dxp(self):
+        return self.shell.dxp
 
     @requires_connection
     def _is_hardware_faulty(self) -> bool:
@@ -83,7 +90,7 @@ class RunControlShellMixin:
 
         print(f"Saved to {filename}")
         if args.plot:
-            self.run_view_data(filename)
+            self.shell.run_view_data(filename)
 
     @requires_connection
     def do_stats(self, arg):

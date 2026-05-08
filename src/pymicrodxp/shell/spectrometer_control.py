@@ -22,8 +22,15 @@ limitations under the License.
 """
 
 
-class SpectrometerControlShellMixin:
+class SpectrometerControlShell:
     """Commands for spectrometer configuration."""
+
+    def __init__(self, shell):
+        self.shell = shell
+
+    @property
+    def dxp(self):
+        return self.shell.dxp
 
     @requires_connection
     def do_parset(self, arg):

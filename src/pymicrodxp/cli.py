@@ -16,9 +16,9 @@ except ImportError:
 
 from .driver import MicroDXP
 
-from .shell import (StatusShellMixin, DiagnosticShellMixin, VisualizationShellMixin,
-                    QualityControlShellMixin, RunControlShellMixin, SpectrometerControlShellMixin,
-                    PeripheralShellMixin)
+from .shell import (StatusShell, DiagnosticShell, VisualizationShell,
+                    QualityControlShell, RunControlShell, SpectrometerControlShell,
+                    PeripheralShell)
 from .shell.cli_utils import ShellLogger, ShellArgparseExit, format_error_traceback
 
 """
@@ -38,9 +38,7 @@ limitations under the License.
 """
 
 
-class MicroDXPShell(cmd.Cmd, StatusShellMixin, DiagnosticShellMixin, VisualizationShellMixin,
-                    QualityControlShellMixin, RunControlShellMixin, SpectrometerControlShellMixin,
-                    PeripheralShellMixin):
+class MicroDXPShell(cmd.Cmd):
     """Interactive command shell for pymicrodxp."""
     intro = "Welcome to the pymicrodxp shell. Type help or ? to list commands.\n"
     prompt = "microdxp:DISCONNECTED> "
@@ -54,9 +52,43 @@ class MicroDXPShell(cmd.Cmd, StatusShellMixin, DiagnosticShellMixin, Visualizati
     def __init__(self, initial_uri=None):
         super().__init__()
         self.dxp = None
+
+        self.status_shell = StatusShell(self)
+        self.register_commands(self.status_shell)
+
+        self.run_control_shell = RunControlShell(self)
+        self.register_commands(self.run_control_shell)
+
+        self.diagnostic_shell = DiagnosticShell(self)
+        self.register_commands(self.diagnostic_shell)
+
+        self.visualization_shell = VisualizationShell(self)
+        self.register_commands(self.visualization_shell)
+
+        self.qc_shell = QualityControlShell(self)
+        self.register_commands(self.qc_shell)
+
+        self.spec_control_shell = SpectrometerControlShell(self)
+        self.register_commands(self.spec_control_shell)
+
+        self.peripheral_shell = PeripheralShell(self)
+        self.register_commands(self.peripheral_shell)
+
         self.initial_uri = initial_uri
         self.default_num_bins = 4096
         self._load_history()
+
+    def register_commands(self, module):
+        """Dynamically binds commands to the shell and violently blocks collisions."""
+        for attr in dir(module):
+            if attr.startswith(('do_', 'help_', 'complete_')):
+                if hasattr(self, attr):
+                    raise ValueError(f"CLI Collision: Command '{attr}' is already registered!")
+                setattr(self, attr, getattr(module, attr))
+
+    def get_names(self):
+        """Override standard cmd.Cmd behavior to see instance-bound methods."""
+        return dir(self)
 
     def _load_history(self):
         """Configures history and fixes Linux up-arrow issues."""

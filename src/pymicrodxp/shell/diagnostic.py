@@ -23,8 +23,15 @@ limitations under the License.
 """
 
 
-class DiagnosticShellMixin:
+class DiagnosticShell:
     """Diagnostic readout and echo commands."""
+
+    def __init__(self, shell):
+        self.shell = shell
+
+    @property
+    def dxp(self):
+        return self.shell.dxp
 
     @requires_connection
     def do_histogram(self, arg):
@@ -43,7 +50,7 @@ class DiagnosticShellMixin:
 
         print(f"Saved to {filename}")
         if args.plot:
-            self.run_view_data(filename)
+            self.shell.run_view_data(filename)
 
     @requires_connection
     def do_trace(self, arg):
@@ -75,7 +82,7 @@ class DiagnosticShellMixin:
 
         print(f"Saved to {filename}")
         if args.plot:
-            self.run_view_data(filename)
+            self.shell.run_view_data(filename)
 
     @requires_connection
     def do_echo(self, arg):

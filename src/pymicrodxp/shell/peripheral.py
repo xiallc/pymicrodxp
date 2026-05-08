@@ -22,8 +22,15 @@ limitations under the License.
 """
 
 
-class PeripheralShellMixin:
+class PeripheralShell:
     """Commands for controlling peripheral devices via various protocols."""
+
+    def __init__(self, shell):
+        self.shell = shell
+
+    @property
+    def dxp(self):
+        return self.shell.dxp
 
     @requires_connection
     def do_i2c(self, arg):

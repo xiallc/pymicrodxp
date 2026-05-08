@@ -20,8 +20,15 @@ limitations under the License.
 """
 
 
-class StatusShellMixin:
+class StatusShell:
     """Hardware health and identification commands."""
+
+    def __init__(self, shell):
+        self.shell = shell
+
+    @property
+    def dxp(self):
+        return self.shell.dxp
 
     @requires_connection
     def do_temp(self, arg):

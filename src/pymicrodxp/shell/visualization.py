@@ -85,14 +85,19 @@ def plotting_loop(data_queue: mp.Queue, title_prefix: str, ylabel: str, color: s
         time.sleep(0.05)
 
 
-class VisualizationShellMixin:
+class VisualizationShell:
     """Commands for data visualization and file browsing."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, shell, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.shell = shell
         self._plot_queues = {}
         self._plot_processes = {}
         self._window_offset = 50
+
+    @property
+    def dxp(self):
+        return self.shell.dxp
 
     def _ensure_plot_process(self, plot_type: str, title: str, ylabel: str, color: str):
         """Spawns or verifies a background plotting process."""
@@ -164,7 +169,7 @@ class VisualizationShellMixin:
 
     def do_view(self, arg):
         """Visualize a saved JSON data file. Usage: view [filename]"""
-        self.run_view_data(arg.strip() if arg else None)
+        self.shell.run_view_data(arg.strip() if arg else None)
 
     def complete_view(self, text, line, begidx, endidx):
         """Autocomplete .json files in the current directory."""
