@@ -453,7 +453,7 @@ class SpectrometerControlCommands:
         """
         if not (0.5 <= trim <= 2):
             raise ValueError(f'invalid gain tweak value: {trim}')
-        tweak = round(trim * 0x8000, 0)
+        tweak = int(round(trim * 0x8000))
         payload = struct.pack('<BH', 0, tweak)
         data = self._driver._transceive(0x91, payload)
         return self._decode_gain_trim(struct.unpack('<H', data[0:2])[0])
