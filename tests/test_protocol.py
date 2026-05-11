@@ -2,10 +2,12 @@
 import struct
 import pytest
 
+from unittest.mock import MagicMock, patch
+
+from .test_base import TestBase
 from pymicrodxp.core.protocol import MicroDXPBase
 from pymicrodxp.core.error import MicroDXPError
 
-from .test_base import TestBase
 
 """
 Copyright 2026 XIA LLC, All rights reserved.
@@ -25,6 +27,31 @@ limitations under the License.
 
 
 class TestProtocol(TestBase):
+
+    def test_invalid_uri(self):
+        """Ensures that we decode URIs properly."""
+        with pytest.raises(ValueError, match="Unsupported URI scheme"):
+            MicroDXPBase("invalid://port")
+
+    def test_auto_baud_failure(self):
+        """Covers failure modes for auto_baud function."""
+        with patch('pymicrodxp.core.transport.serial.Serial'), \
+                patch('pymicrodxp.core.protocol.MicroDXPBase._auto_baud'):
+            proto = MicroDXPBase("serial://COM3")
+
+        proto.transport.exchange = MagicMock(side_effect=ConnectionError)
+        with pytest.raises(ConnectionError, match="Failed to auto-baud"):
+            MicroDXPBase._auto_baud(proto)
+
+        proto.transport.exchange = MagicMock()
+        # Simulate various failures during the baud rate loop
+        proto.transport.exchange.side_effect = [
+            ConnectionError("Fail 1"),
+            ValueError("Fail 2"),
+            struct.error("Fail 3"),
+            b'\x1B' + b'\x4A' + b'\x00' * 10
+        ]
+        MicroDXPBase._auto_baud(proto)
 
     @pytest.fixture(autouse=True)
     def restore_transceive(self, initialize_dxp):
@@ -120,7 +147,6 @@ class TestProtocol(TestBase):
             bytes([packet[-1]])
         ]
 
-        # Verify that the specific hardware error is raised
         with pytest.raises(MicroDXPError) as exc:
             self.dxp._transceive(cmd)
         assert exc.value.status == status_err
@@ -128,10 +154,8 @@ class TestProtocol(TestBase):
     def test_transceive_echo_special_handling(self):
         """Special Case: ECHO (0x4A) returns the full payload including the first byte."""
         cmd = 0x4A
-        # ECHO does not have a status byte in the payload; the whole thing is data
         echo_payload = b'HelloDXP'
 
-        # Build packet manually since ECHO doesn't follow the status-byte convention
         ndata = struct.pack('<H', len(echo_payload))
         cs = cmd ^ ndata[0] ^ ndata[1]
         for b in echo_payload: cs ^= b
@@ -146,5 +170,4 @@ class TestProtocol(TestBase):
         ]
 
         result = self.dxp._transceive(cmd, b'HelloDXP')
-        # Ensure the first byte is NOT stripped for ECHO commands
         assert result == echo_payload

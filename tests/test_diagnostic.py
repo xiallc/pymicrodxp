@@ -89,3 +89,9 @@ class TestDiagnosticCommands(TestBase):
         with pytest.raises(MicroDXPError) as exc:
             self.dxp.diagnostic.read_diagnostic_histogram()
         assert exc.value.status == 0x01
+
+    def test_transceive_valid(self):
+        """Line 106: Success branch of transceive."""
+        self.setup_response(b'\x01\x02')
+        res = self.dxp.diagnostic.transceive(0x40, b'\x00')
+        assert res == b'\x01\x02'

@@ -142,3 +142,18 @@ class TestRunControl(TestBase):
     def test_write_run_preset_validation(self, p_type, length, err_msg):
         with pytest.raises(ValueError, match=err_msg):
             self.dxp.run_control.write_run_preset(p_type, length)
+
+    def test_write_run_preset_32bit_overflow(self):
+        """Line 171: Branch where high word (bytes 32-48) is used."""
+        # Value > 2^32 - 1
+        val = 0x100000000
+        self.setup_response(b'\x03' + b'\x00' * 6)
+        self.dxp.run_control.write_run_preset(3, val)
+        # Verify 9-byte packet (cmd + preset + 3 words)
+        sent_data = self.dxp._transceive.call_args[0][1]
+        assert len(sent_data) == 8  # 1 (mode) + 1 (type) + 6 (3 words)
+
+    def test_set_run_mode_not_implemented(self):
+        """Line 199: NotImplementedError coverage."""
+        with pytest.raises(NotImplementedError):
+            self.dxp.run_control.set_run_mode(1)

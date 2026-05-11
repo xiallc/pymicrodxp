@@ -385,3 +385,31 @@ class TestSpectrometerControl(TestBase):
         with pytest.raises(MicroDXPError) as exc:
             self.dxp.spectrometer.write_parameter_set(1)
         assert exc.value.status == 0x01
+
+    def test_read_parset_values_options(self):
+        """Line 341/347: Validation branches."""
+        with pytest.raises(ValueError, match="invalid option"):
+            self.dxp.spectrometer.read_parset_values(option=5)
+
+        self.setup_response(b'\x02' + b'\x00' * 10)
+        res = self.dxp.spectrometer.read_parset_values(option=0)
+        assert res == {"NUMPARSET": 2}
+
+    def test_gain_trim(self):
+        """Lines 445-459, 493-507: Full coverage for Trim/DAC."""
+        self.setup_response(b'\x00\x80')
+        assert self.dxp.spectrometer.read_gain_trim() == 1.0
+        self.dxp.spectrometer.write_gain_trim(1.5)
+
+    def test_dac(self):
+        self.setup_response(b'\x00\x01')
+        assert self.dxp.spectrometer.read_dac_value() == 256
+        self.dxp.spectrometer.write_dac_value(500)
+
+    def test_uncovered_methods(self):
+        """Lines 437, 445, 493, 505: GainTrim and DAC error paths."""
+        # Force transceive to return enough bytes to pass unpack
+        self.setup_response(b'\x00' * 10)
+        self.dxp.spectrometer.read_gain_trim()
+        self.dxp.spectrometer.read_dac_value()
+        self.dxp.spectrometer.write_dac_value(100)

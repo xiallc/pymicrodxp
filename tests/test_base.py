@@ -1,5 +1,4 @@
 """ SPDX-License-Identifier: Apache-2.0 """
-
 import struct
 import pytest
 from unittest.mock import MagicMock, patch
@@ -7,10 +6,16 @@ from unittest.mock import MagicMock, patch
 from pymicrodxp.driver import MicroDXP
 from pymicrodxp.core.error import MicroDXPError
 from pymicrodxp.core.protocol import MicroDXPBase
+from pymicrodxp.core.transport import usb
 
 from pymicrodxp.commands.status import StatusCommands
 from pymicrodxp.commands.diagnostic import DiagnosticCommands
 from pymicrodxp.commands.spectrometer_control import SpectrometerControlCommands
+
+# Centralized check for USB availability
+HAS_USB = usb is not None
+# Safe reference for USBError even if pyusb is missing
+USB_ERROR = getattr(usb.core, 'USBError', Exception) if HAS_USB else Exception
 
 """
 Copyright 2026 XIA LLC, All rights reserved.
@@ -30,11 +35,35 @@ limitations under the License.
 
 
 class TestBase:
+    MOCK_BOARD_INFO = {
+        'pic_variant': 36,
+        'pic_major_version': 4,
+        'pic_minor_version': 22,
+        'dsp_variant': 17,
+        'dsp_major_version': 10,
+        'dsp_minor_version': 30,
+        'dsp_clock_speed_mhz': 40,
+        'clock_enable_register': 1,
+        'nfippi': 1,
+        'gain_mode': 3,
+        'nominal_gain': 1.0,
+        'nyquist_filter': 2,
+        'adc_speed_grade': 1,
+        'adc_clk_period_s': 25e-9,
+        'fpga_speed': 4,
+        'analog_power_supply': 0,
+        'fippi_decimation': 0,
+        'fippi_version': 18,
+        'fippi_variant': 17,
+    }
+
     @pytest.fixture(autouse=True)
     def initialize_dxp(self):
+        """Default initialization using Serial transport."""
         with patch('pymicrodxp.core.transport.serial.Serial') as mock_serial_class:
             self.mock_ser = mock_serial_class.return_value
             self.mock_ser.read.return_value = b''
+            self.mock_ser.port = "COM3"
 
             with patch.object(DiagnosticCommands, 'echo', return_value=b"PING", autospec=True), \
                     patch.object(StatusCommands, 'read_serial_number', return_value="1234",
@@ -48,47 +77,47 @@ class TestBase:
                     patch.object(SpectrometerControlCommands, 'read_general_set', return_value=0,
                                  autospec=True), \
                     patch.object(MicroDXPBase, '_auto_baud', autospec=True):
-                self.dxp = MicroDXP(uri="serial://MOCK_PORT")
+                self.dxp = MicroDXP(uri="serial://COM3")
 
             self.dxp._transceive = MagicMock()
-            self.dxp.board_info = {
-                'pic_variant': 36,
-                'pic_major_version': 4,
-                'pic_minor_version': 22,
-                'dsp_variant': 17,
-                'dsp_major_version': 10,
-                'dsp_minor_version': 30,
-                'dsp_clock_speed_mhz': 40,
-                'clock_enable_register': 1,
-                'nfippi': 1,
-                'gain_mode': 3,
-                'nominal_gain': 1.0,
-                'nyquist_filter': 2,
-                'adc_speed_grade': 1,
-                'adc_clk_period_s': 25e-9,
-                'fpga_speed': 4,
-                'analog_power_supply': 0,
-                'fippi_decimation': 0,
-                'fippi_version': 18,
-                'fippi_variant': 17,
-            }
+            self.dxp.board_info = self.MOCK_BOARD_INFO.copy()
+
+    @pytest.fixture
+    def initialize_usb_dxp(self):
+        if not HAS_USB:
+            pytest.skip("pyusb not installed")
+
+        """Specific initialization for USB testing. Overrides self.dxp with USB transport."""
+        with patch('pymicrodxp.core.transport.usb.core.find') as mock_find:
+            self.mock_usb_handle = mock_find.return_value = MagicMock()
+            self.mock_usb_handle.is_kernel_driver_active.return_value = False
+
+            with patch.object(DiagnosticCommands, 'echo', return_value=b"PING", autospec=True), \
+                    patch.object(StatusCommands, 'read_serial_number', return_value="1234",
+                                 autospec=True), \
+                    patch.object(StatusCommands, 'get_board_information',
+                                 return_value=self.MOCK_BOARD_INFO.copy(), autospec=True), \
+                    patch.object(StatusCommands, 'read_dsp_parameter_names',
+                                 return_value={'names': ['TEST_PARAMETER']}, autospec=True), \
+                    patch.object(SpectrometerControlCommands, 'read_parameter_set', return_value=0,
+                                 autospec=True), \
+                    patch.object(SpectrometerControlCommands, 'read_general_set', return_value=0,
+                                 autospec=True), \
+                    patch.object(MicroDXPBase, '_auto_baud', autospec=True):
+                self.dxp = MicroDXP(uri="usb://")
+            self.dxp._transceive = MagicMock()
 
     def setup_response(self, data_payload):
-        """Helper to simulate a hardware data payload (no status byte)."""
         self.dxp._transceive.return_value = data_payload
 
     def setup_error(self, cmd_byte, status_code):
-        """Simulates a hardware error by making the mock raise MicroDXPError."""
         self.dxp._transceive.side_effect = MicroDXPError(cmd_byte, status_code)
 
     def create_raw_packet(self, cmd_byte, status_byte, data=b''):
-        """Helper to build a full raw binary packet for low-level serial testing."""
         payload = bytes([status_byte]) + data
         ndata = struct.pack('<H', len(payload))
-
         header_and_body = bytes([cmd_byte]) + ndata + payload
         checksum = 0
         for b in header_and_body:
             checksum ^= b
-
         return bytes([0x1B]) + header_and_body + bytes([checksum])
