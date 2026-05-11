@@ -1,7 +1,7 @@
 """ SPDX-License-Identifier: Apache-2.0 """
 
 from pymicrodxp.shell.cli_utils import requires_connection, ShellArgumentParser
-from example_commands import CustomCommands
+from extension.commands import CustomCommands
 
 class CustomShellCommands:
     """Example interactive shell commands for custom hardware."""
