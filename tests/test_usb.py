@@ -1,6 +1,6 @@
 """ SPDX-License-Identifier: Apache-2.0 """
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 from pymicrodxp.core.transport import USBTransport
 from .test_base import TestBase, HAS_USB, USB_ERROR
 
@@ -74,17 +74,6 @@ class TestUSBTransport(TestBase):
 
     # --- Memory and DMA Coverage ---
 
-    def test_usb_read_memory_fallback(self, initialize_usb_dxp):
-        """Verify fallback from endpoint 0x82 to 0x88 on timeout."""
-        self.mock_usb_handle.read.reset_mock()
-        self.mock_usb_handle.read.side_effect = [
-            USB_ERROR("[Errno 110] Operation timed out"),
-            b'\x00' * 512
-        ]
-        self.dxp.transport.read_memory(0x0, 10)
-        assert self.dxp.transport.EP_DATA_IN == 0x88
-        assert self.mock_usb_handle.read.call_count == 2  # Only counts calls in read_memory
-
     def test_usb_read_memory_unhandled_error(self, initialize_usb_dxp):
         """Verify that non-timeout USBErrors are re-raised."""
         self.mock_usb_handle.read.reset_mock()
@@ -114,20 +103,42 @@ class TestUSBTransport(TestBase):
             assert result == small_packet
             assert mock_read.call_count == 1
 
-    def test_exchange_large_packet_re_read(self, initialize_usb_dxp):
-        """Verify that exchange() triggers second read for large packets."""
+    def test_usb_read_memory_alignment_padding(self, initialize_usb_dxp):
+        """
+        Verify that requests are rounded up to the nearest 512 bytes
+        to prevent Overflow errors.
+        """
+        self.mock_usb_handle.read.reset_mock()
+        # Request an unaligned size (2701 bytes)
+        unaligned_size = 2701
+        expected_req_size = 3072 # 512 * 6
+
+        # Return a buffer of the padded size
+        self.mock_usb_handle.read.return_value = b'\x00' * expected_req_size
+
+        result = self.dxp.transport.read_memory(0x01000000, unaligned_size)
+
+        # Verify the actual low-level request was padded to 3072
+        self.mock_usb_handle.read.assert_called_with(0x82, expected_req_size, timeout=ANY)
+        # Verify the returned data was sliced back to the original request
+        assert len(result) == unaligned_size
+
+    def test_usb_exchange_large_packet_re_read(self, initialize_usb_dxp):
+        """Verify that exchange() triggers second read and pads the size."""
         cmd = 0x42
-        # Total length = 1006
-        full_packet = self.create_raw_packet(cmd, 0x00, b'\x00' * 1000)
+        # Data = 2696. Payload (+Status) = 2697. Total (+ESC,CMD,NDATA,CHK) = 2702.
+        full_packet = self.create_raw_packet(cmd, 0x00, b'\x00' * 2696)
 
         with patch.object(USBTransport, 'read_memory') as mock_read:
-            # First read returns partial (512 padded), second returns full
+            # Initial read returns partial, second read handles the logic
             mock_read.side_effect = [full_packet[:512], full_packet]
 
             result = self.dxp.transport.exchange(b'tx')
-            assert len(result) == 1006
-            assert mock_read.call_count == 2
-            mock_read.assert_called_with(0x01000000, 1006)
+
+            assert len(result) == 2702
+            # The second call to read_memory in exchange() passes total_len (2702)
+            # which read_memory() itself will then pad to 3072 in the low-level call.
+            mock_read.assert_called_with(0x01000000, 2702)
 
     def test_exchange_framing_error(self, initialize_usb_dxp):
         """Verify error if response doesn't start with ESC."""

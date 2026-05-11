@@ -192,14 +192,24 @@ class USBTransport(Transport):
         self.handle.write(self.EP_DATA_OUT, data, timeout=int(self.timeout * 1000))
 
     def read_memory(self, addr: int, num_bytes: int) -> bytes:
-        req_bytes = max(num_bytes, self.USB_SMALL_READ_PAD)
+        """
+        Reads data from hardware memory with 512-byte alignment to prevent
+        Overflow (Errno 75) errors.
+        """
+        # Calculate how many bytes to actually request to keep buffers aligned.
+        # Hardware transmits in 512-byte packets; requesting an unaligned
+        # amount triggers a Babble/Overflow error in libusb.
+        pad = self.USB_SMALL_READ_PAD
+        req_bytes = ((num_bytes + pad - 1) // pad) * pad
+
         self._send_usb_setup_packet(addr, req_bytes, self.USB_SETUP_FLAG_READ)
 
         try:
             raw_data = self.handle.read(self.EP_DATA_IN, req_bytes,
                                         timeout=int(self.timeout * 1000))
         except usb.core.USBError as e:
-            if "110" in str(e) or "timeout" in str(e).lower():
+            # Note: errno 110 is the standard timeout code
+            if e.errno == 110 or "timeout" in str(e).lower():
                 logger.warning(
                     f"Timeout on IN endpoint {hex(self.EP_DATA_IN)}. Falling back to 0x88...")
                 self.EP_DATA_IN = 0x88
