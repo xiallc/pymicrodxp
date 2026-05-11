@@ -44,6 +44,21 @@ class Transport:
         self.netloc = parsed.netloc
         self.path = parsed.path
 
+    @staticmethod
+    def create(uri: str, timeout: float) -> "Transport":
+        """
+        Factory method to instantiate the correct transport based on URI scheme.
+        :param uri: Hardware URI (serial:// or usb://)
+        :param timeout: Communication timeout in seconds
+        :returns: An instance of SerialTransport or USBTransport
+        """
+        if uri.startswith("usb://"):
+            return USBTransport(uri, timeout)
+        elif uri.startswith("serial://"):
+            return SerialTransport(uri, timeout)
+        else:
+            raise ValueError(f"Unsupported URI scheme. Use 'serial://' or 'usb://'. Got: {uri}")
+
     def exchange(self, packet: bytes) -> bytes:
         """Sends a packet and returns the fully extracted response packet."""
         raise NotImplementedError
@@ -198,6 +213,8 @@ class USBTransport(Transport):
     def exchange(self, packet: bytes) -> bytes:
         self._write_usb_memory(self.XIA_UART_ADDRESS, packet)
         time.sleep(0.01)
+
+        # 1. Read the initial block
         resp_bytes = self.read_memory(self.XIA_UART_ADDRESS, self.USB_SMALL_READ_PAD)
         if len(resp_bytes) == 0:
             raise ConnectionError("USB timeout: Received 0 bytes (Empty Buffer)")
@@ -206,11 +223,17 @@ class USBTransport(Transport):
             err_hex = resp_bytes[:10].hex(' ').upper()
             raise ConnectionError(f"USB framing error: Expected ESC, got: {err_hex}")
 
+        # 2. Inspect the packet header to find the true payload size
         resp_ndata = struct.unpack('<H', resp_bytes[2:4])[0]
-        total_len = 1 + 1 + 2 + resp_ndata + 1  # ESC + CMD + NDATA + DATA + CHK
+        total_len = 1 + 1 + 2 + resp_ndata + 1  # ESC + CMD + NDATA + PAYLOAD + CHK
+
+        # 3. If response is larger than the initial read, re-read the full packet
         if len(resp_bytes) < total_len:
-            raise ConnectionError(
-                f"USB framing error: Expected {total_len} bytes, received {len(resp_bytes)}")
+            resp_bytes = self.read_memory(self.XIA_UART_ADDRESS, total_len)
+
+            if len(resp_bytes) < total_len:
+                raise ConnectionError(
+                    f"USB framing error: Expected {total_len} bytes, received {len(resp_bytes)}")
 
         return resp_bytes[:total_len]
 

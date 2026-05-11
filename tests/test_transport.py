@@ -1,8 +1,9 @@
 """ SPDX-License-Identifier: Apache-2.0 """
 import pytest
 
-from pymicrodxp.core.transport import Transport
-from .test_base import TestBase
+from unittest.mock import patch
+from pymicrodxp.core.transport import Transport, SerialTransport, USBTransport
+from .test_base import TestBase, HAS_USB
 
 """
 Copyright 2026 XIA LLC, All rights reserved.
@@ -24,6 +25,22 @@ limitations under the License.
 class TestTransport(TestBase):
     """Tests related to the base transport class"""
 
+    # --- Transport Factory Gaps ---
+    def test_transport_factory_success(self):
+        """Coverage for transport.py: create() success paths."""
+        with patch('pymicrodxp.core.transport.serial.Serial'):
+            t_serial = Transport.create("serial://COM3", 1.0)
+            assert isinstance(t_serial, SerialTransport)
+
+        if HAS_USB:
+            with patch('pymicrodxp.core.transport.usb.core.find'):
+                t_usb = Transport.create("usb://", 1.0)
+                assert isinstance(t_usb, USBTransport)
+
+    def test_transport_factory_fail(self):
+        """Coverage for transport.py: create() unsupported scheme."""
+        with pytest.raises(ValueError, match="Unsupported URI scheme"):
+            Transport.create("invalid://port", 1.0)
 
     def test_transport_base_unimplemented(self):
         """Ensures that if we provide a URI base that we don't know we error out."""

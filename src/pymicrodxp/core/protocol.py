@@ -7,7 +7,7 @@ from ..core.logging import MergingAdapter
 from .error import MicroDXPError
 from .logging import logger
 from .registry import COMMAND_REGISTRY
-from .transport import USBTransport, SerialTransport
+from .transport import Transport
 from .utils import calculate_checksum
 
 """
@@ -38,16 +38,11 @@ class MicroDXPBase:
         self.sn: str = "Unknown"
         self.log: MergingAdapter = MergingAdapter(logger, {"sn": self.sn})
 
-        if uri.startswith("usb://"):
-            raise NotImplementedError("USB transport is not supported.")
-            self.transport = USBTransport(uri, timeout)
-        elif uri.startswith("serial://"):
-            self.transport = SerialTransport(uri, timeout)
-            self._auto_baud()
-        else:
-            raise ValueError(f"Unsupported URI scheme. Use 'serial://' or 'usb://'. Got: {uri}")
-
+        self.transport = Transport.create(uri, timeout)
         self.use_usb = self.transport.use_usb
+
+        if not self.use_usb:
+            self._auto_baud()
 
     def _auto_baud(self):
         """Negotiates baud rate using 0x4A and a payload of PING."""
