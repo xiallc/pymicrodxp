@@ -169,7 +169,7 @@ class VisualizationShell:
 
     def do_view(self, arg):
         """Visualize a saved JSON data file. Usage: view [filename]"""
-        self.shell.run_view_data(arg.strip() if arg else None)
+        self.run_view_data(arg.strip() if arg else None)
 
     def complete_view(self, text, line, begidx, endidx):
         """Autocomplete .json files in the current directory."""
