@@ -110,14 +110,14 @@ class TestSpectrometerControl(TestBase):
     def test_read_bl_avg_length(self):
         self.setup_response(struct.pack('<H', 32))
         res = self.dxp.spectrometer.read_bl_avg_length()
-        assert res == 1024
+        assert res == 512
         self.dxp._transceive.assert_called_with(0x92, b'\x01')
 
     @pytest.mark.parametrize("ave_length, expected_hw_val", [
-        (1, 32768),
-        (2, 16384),
-        (16, 2048),
-        (1024, 32)
+        (1, 16384),
+        (2, 8192),
+        (16, 1024),
+        (512, 32)
     ])
     def test_write_bl_avg_length(self, ave_length, expected_hw_val):
         self.setup_response(struct.pack('<H', expected_hw_val))

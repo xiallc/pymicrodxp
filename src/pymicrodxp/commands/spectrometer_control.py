@@ -27,7 +27,7 @@ limitations under the License.
 class SpectrometerControlCommands:
     """Spectrometer Control commands"""
 
-    BLFILTER_BASE = 32768
+    BLFILTER_BASE = 16384
 
     def __init__(self, driver):
         self._driver = driver
@@ -478,7 +478,7 @@ class SpectrometerControlCommands:
                            Ranges from 1 to 1024 in powers of 2.
         :returns: The value of BLFILTER for the current baseline.
         """
-        if ave_length not in {2 ** i for i in range(11)}:
+        if ave_length not in {2 ** i for i in range(10)}:
             raise ValueError(f"invalid baseline averaging length: {ave_length}")
         value = struct.pack("<H", self.BLFILTER_BASE // ave_length)
         data = self._driver._transceive(0x92, value)
