@@ -53,14 +53,14 @@ class RunControlShell:
         args = parser.parse_args(arg.split())
         res = self.dxp.run_control.start_run(args.clear_mca)
         print(f"Run #{res} started.")
-        self._update_prompt(1)
+        self.shell._update_prompt(1)
 
     @requires_connection
     def do_stop(self, arg):
         """0x01: Stop the current data run."""
         self.dxp.run_control.end_run()
         print("Run stopped.")
-        self._update_prompt(0)
+        self.shell._update_prompt(0)
 
     @requires_connection
     def do_mca(self, arg):
