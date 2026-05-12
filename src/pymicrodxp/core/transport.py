@@ -53,6 +53,7 @@ class Transport:
         :returns: An instance of SerialTransport or USBTransport
         """
         if uri.startswith("usb://"):
+            raise NotImplementedError("USB transport is not supported.")
             return USBTransport(uri, timeout)
         elif uri.startswith("serial://"):
             return SerialTransport(uri, timeout)
